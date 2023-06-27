@@ -153,6 +153,7 @@ async fn get_gsid(client: &Client, id: &str) -> Result<String, aws_sdk_dynamodb:
 async fn hello(
     req: Request<hyper::body::Incoming>,
 ) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+    println!("Handling {:?} {}", req.method(), req.uri().path());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/login") => {
             if req.headers().contains_key("id") {
