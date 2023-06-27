@@ -166,7 +166,10 @@ async fn hello(
             } else {
                 bad_request_response("missing id")
             }
-        }
+        },
+        (&Method::GET, "/health") => {
+            Ok(Response::new(empty()))
+        },
         _ => not_found_response(),
     }
 }
