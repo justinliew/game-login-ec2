@@ -4,8 +4,6 @@ use http_body_util::Full;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty};
 use hyper::server::conn::http1;
 use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
-use serde::Serialize;
-use serde::ser::{SerializeStruct,Serializer};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -41,29 +39,6 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
-#[derive(Debug)]
-struct Kv {
-    key: String,
-    value: AttributeValue,
-}
-
-fn value_to_string(value: &AttributeValue) -> String {
-    format!("{:?}", value)
-}
-
-impl Serialize for Kv {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // 3 is the number of fields in the struct.
-        let mut state = serializer.serialize_struct("Kv", 2)?;
-        state.serialize_field("key", &self.key)?;
-        state.serialize_field("value", &value_to_string(&self.value))?;
-        state.end()
-    }
-}
-
 async fn insert_new_account(
     client: &Client,
     gsid: &str,
@@ -94,16 +69,24 @@ async fn get_account(client: &Client, gsid: &str) -> Result<String, aws_sdk_dyna
         .await?;
 
     if let Some(items) = results.items {
-        assert!(items.len() == 1);        
+        assert!(items.len() == 1);
         serialize_account(&items[0])
     } else {
         panic!() // TODO
     }
 }
 
+fn convert_hashmap_for_json(attributes: &HashMap<String, AttributeValue>) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    for key in attributes.keys() {
+        out.insert(key.clone(), format!("{:?}", attributes[key]));
+    }
+    out
+}
+
 fn serialize_account(attributes: &HashMap<String, AttributeValue>) -> Result<String,aws_sdk_dynamodb::Error> {
-    let combined : Vec<_> = attributes.iter().map(|h| Kv{key:h.0.to_string(),value:h.1.clone()}).collect();
-    let json = serde_json::to_string(&combined);
+    let serializable = convert_hashmap_for_json(attributes);
+    let json = serde_json::to_string(&serializable);
     Ok(json.expect("a json"))
 }
 
